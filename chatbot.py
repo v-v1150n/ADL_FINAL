@@ -2,8 +2,7 @@ import requests
 import logging
 import json
 import streamlit as st
-from datetime import datetime
-import retriever_chain as rag
+import init_chain as rag
 
 logging.basicConfig(level=logging.INFO)
 
@@ -15,17 +14,25 @@ def get_id_from_url():
         st.warning("No Chemical ID provided in URL")
         return None
     
-def save_conversation_to_json(user_input, chatbot_response):
+def load_retrieved_documents_from_file(file_path):
+    with open(file_path, "r", encoding="utf-8") as file:
+        data = json.load(file)
+        # 提取所有 content 值
+        contents = [value for key, value in data[0].items()]
+        return contents
+
+def save_conversation_to_json(user_input, chatbot_response, retrieved_documents):
     """
     將對話數據和檢索結果保存為 JSON 文件
     """
+
     data = {
         "user_input": user_input,
-        # "retrieved_documents": [{"content": doc} for doc in retrieved_documents],  # 保存檢索內容
-        "chatbot_response": chatbot_response,
-        "timestamp": datetime.now().isoformat()  # 添加時間戳
+        "retrieved_contexts": retrieved_documents,  # 保存檢索內容
+        "response": chatbot_response,
+        "reference":"",  # 添加時間戳
     }
-    output_path = "conversation_logs.json"
+    output_path = "ragas_result.json"
 
     try:
         # 檢查文件是否已存在，若存在則讀取後追加
@@ -44,25 +51,25 @@ def save_conversation_to_json(user_input, chatbot_response):
     except Exception as e:
         print(f"保存數據時出錯: {e}")
 
+
+
 def get_response(query):
     try:
         # 設定檢索的向量資料庫
         load_path = ["./BENZENE_CHROMA_DB"]
         chain = rag.chain(load_path=load_path)
 
-        # # 檢索文檔
-        # retrieved_documents = chain.retrieve(query)  # 假設 retriever 支持這個方法
-        # logging.info(f"Retrieved Documents: {retrieved_documents}")
-
         # 調用模型生成回應
         response = chain.invoke(query)
         logging.info(f"Response from chain.invoke(): {response}")
+        retriever_result = "retriever_result.json"
+        retrieved_documents = load_retrieved_documents_from_file(retriever_result)
 
         # 保存對話紀錄
         save_conversation_to_json(
             user_input=query,
-            # retrieved_documents=retrieved_documents,
-            chatbot_response=response
+            retrieved_documents=retrieved_documents,
+            chatbot_response=response,
         )
 
         return response
@@ -126,19 +133,19 @@ def get_api_response(url):
         logging.error(f"API請求出錯: {e}")
         return None
 
-# def init_logging():
-#     logger = logging.getLogger("SAS_RAG_chatbot_openai")
-#     if logger.handlers:
-#         return
-#     logger.propagate = False
-#     logger.setLevel(logging.INFO)
-#     formatter = logging.Formatter("%(name)s %(asctime)s %(levelname)s - %(message)s")
-#     handler = logging.FileHandler('sas_rag_chatbot.log')
-#     handler.setLevel(logging.INFO)
-#     handler.setFormatter(formatter)
-#     logger.addHandler(handler)
+def init_logging():
+    logger = logging.getLogger("SAS_RAG_chatbot_openai")
+    if logger.handlers:
+        return
+    logger.propagate = False
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(name)s %(asctime)s %(levelname)s - %(message)s")
+    handler = logging.FileHandler('sas_rag_chatbot.log')
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
 if __name__ == "__main__":
-    # init_logging()
+    init_logging()
     logger = logging.getLogger("SAS_RAG_chatbot_openai")
     main()

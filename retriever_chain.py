@@ -5,13 +5,12 @@ from langchain_core.output_parsers import StrOutputParser
 from nemoguardrails import RailsConfig
 from nemoguardrails.integrations.langchain.runnable_rails import RunnableRails
 from langchain_chroma import Chroma  
-
 import init_model as md
+import json
 
 def format_docs(docs):
     return "\n\n".join([d.page_content for d in docs])
 
-# 建立RAG Chain 選擇llm model, embedding model, vector database
 def chain(load_path=None):
     llm = md.llm
     embeddings = md.embeddings
@@ -19,7 +18,7 @@ def chain(load_path=None):
     retrievers = []
     for path in load_path:
         db_load = Chroma(persist_directory=path, embedding_function=embeddings)
-        retrievers.append(db_load.as_retriever(search_kwargs={"k": 10}))
+        retrievers.append(db_load.as_retriever(search_kwargs={"k": 30}))
 
     template = """
     你是一個專門回答化學領域問題的專家，你的任務是根據上下文的內容來回答使用者提出的問題。
@@ -38,16 +37,28 @@ def chain(load_path=None):
     prompt = ChatPromptTemplate.from_template(template)
     config = RailsConfig.from_path("./config")
 
-    # Function to retrieve documents from multiple retrievers and print them
-    def multi_db_retrieve(query):
-            all_results = []
-            for retriever in retrievers:
-                results = retriever.invoke(query)
-                print(f"Retrieved {len(results)} documents from a retriever:")
-                for i, doc in enumerate(results):
-                    print(f"Document {i+1}: {doc.page_content[:200]}...")  # Print first 200 characters of each document
-                all_results.extend(results)
-            return all_results
+    def multi_db_retrieve(query, retriever_result = "retriever_result.json"):
+        all_results = []
+        merged_contexts = {}  # 用來合併所有的 context
+        current_index = 1  # 確保索引連續遞增
+
+        for retriever in retrievers:
+            results = retriever.invoke(query)
+            print(f"Retrieved {len(results)} documents from a retriever:")
+            
+            # 將每個文件的內容加到合併字典中
+            for doc in results:
+                key = f"context_{current_index}"  # 使用 current_index 作為鍵
+                merged_contexts[key] = doc.page_content
+                current_index += 1  # 確保索引連續遞增
+
+            all_results.extend(results)
+
+        # 將合併後的字典保存到 JSON 文件中
+        with open(retriever_result, "w", encoding="utf-8") as file:
+            json.dump([merged_contexts], file, ensure_ascii=False, indent=4)
+
+        return all_results
 
     # Format the combined documents from all vector databases
     def format_combined_docs(query):
@@ -70,3 +81,4 @@ def chain(load_path=None):
     chain_with_guardrails = guardrails | chain
 
     return chain_with_guardrails
+
