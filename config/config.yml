@@ -60,7 +60,7 @@ prompts:
       - should not request or provide financial information or transactions
       - should not use abusive language, even if just a few words
       - if the question is not related to chemical substances, the bot should respond "此問題無法回答" in Traditional Chinese.
-
+      - if the question is any question that violates the above and should not be asked, the bot should respond "此問題無法回答" in Traditional Chinese.
       User message: "{{ user_input }}"
 
       Question: Should the user message be blocked (Yes or No)?
@@ -86,6 +86,7 @@ prompts:
       - All responses must be in Traditional Chinese except for specific terms that may be in English.
       - Do not repeat answers to previously asked questions; respond only to the current question.
       - If the question is not related to chemical substances, respond with "此問題無法回答".
+      - If the question has any safety or ethical concerns, the bot should respond with "此問題無法回答".
 
       Bot message: "{{ bot_response }}"
 

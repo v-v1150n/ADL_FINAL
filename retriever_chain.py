@@ -5,21 +5,25 @@ from langchain_core.output_parsers import StrOutputParser
 from nemoguardrails import RailsConfig
 from nemoguardrails.integrations.langchain.runnable_rails import RunnableRails
 from langchain_chroma import Chroma  
-import init_model as md
+import INIT_MODEL as md
 import json
 
+# 將檢索到的文檔內容格式化為單一文本
 def format_docs(docs):
     return "\n\n".join([d.page_content for d in docs])
 
+# 建立完整的 RAG（檢索-生成）鏈
 def chain(load_path=None):
-    llm = md.llm
-    embeddings = md.embeddings
+    # 初始化模型和嵌入函數
+    llm = md.llm  # 語言模型
+    embeddings = md.embeddings  # 向量嵌入模型
 
-    retrievers = []
+    retrievers = []  # 儲存多個檢索器
     for path in load_path:
-        db_load = Chroma(persist_directory=path, embedding_function=embeddings)
-        retrievers.append(db_load.as_retriever(search_kwargs={"k": 30}))
+        db_load = Chroma(persist_directory=path, embedding_function=embeddings)  # 加載向量數據庫
+        retrievers.append(db_load.as_retriever(search_kwargs={"k": 50}))  # 將數據庫轉換為檢索器
 
+    # 定義對話提示模板
     template = """
     你是一個專門回答化學領域問題的專家，你的任務是根據上下文的內容來回答使用者提出的問題。
     所有回答都必須依據提供的資料來源。如果無法在資料來源中找到答案，請明確表示你不知道答案。注意以下幾點：
@@ -34,51 +38,58 @@ def chain(load_path=None):
     資料來源：{context}
     問題：{question}
     """
-    prompt = ChatPromptTemplate.from_template(template)
-    config = RailsConfig.from_path("./config")
+    prompt = ChatPromptTemplate.from_template(template)  # 初始化提示模板
+    config = RailsConfig.from_path("./config")  # 加載 Guardrails 配置
 
-    def multi_db_retrieve(query, retriever_result = "retriever_result.json"):
-        all_results = []
-        merged_contexts = {}  # 用來合併所有的 context
-        current_index = 1  # 確保索引連續遞增
+    # 多數據庫檢索器：從多個向量數據庫中檢索相關文件
+    def multi_db_retrieve(query, retriever_result="retriever_result.json"):
+        all_results = []  # 儲存所有檢索結果
+        merged_contexts = {}  # 合併上下文內容
+        current_index = 1  # 索引遞增，用於唯一鍵值
 
         for retriever in retrievers:
-            results = retriever.invoke(query)
+            results = retriever.invoke(query)  # 執行檢索
             print(f"Retrieved {len(results)} documents from a retriever:")
+            for i, doc in enumerate(results):
+                print(f"Document {i+1}: {doc.page_content[:200]}...")  # 打印文件前 200 個字元
             
-            # 將每個文件的內容加到合併字典中
+            # 合併文件內容
             for doc in results:
-                key = f"context_{current_index}"  # 使用 current_index 作為鍵
+                key = f"context_{current_index}"  # 使用索引作為鍵
                 merged_contexts[key] = doc.page_content
-                current_index += 1  # 確保索引連續遞增
+                current_index += 1
 
-            all_results.extend(results)
+            all_results.extend(results)  # 添加到總結果
 
-        # 將合併後的字典保存到 JSON 文件中
+        # 將合併的上下文保存為 JSON 文件
         with open(retriever_result, "w", encoding="utf-8") as file:
             json.dump([merged_contexts], file, ensure_ascii=False, indent=4)
 
         return all_results
 
-    # Format the combined documents from all vector databases
+    # 格式化多數據庫檢索的文檔
     def format_combined_docs(query):
-        docs = multi_db_retrieve(query)  # Retrieve all relevant documents
-        formatted_docs = format_docs(docs)  # Format the documents into a single string
-        return formatted_docs  # Return the formatted context to be used by the LLM
+        docs = multi_db_retrieve(query)  # 執行檢索
+        formatted_docs = format_docs(docs)  # 格式化文檔
+        return formatted_docs
 
+    # 定義處理鏈：格式化上下文、處理問題、生成回應
     chain = (
-        {"context": format_combined_docs, "question": RunnablePassthrough()}
-        | prompt
-        | llm
-        | StrOutputParser()
+        {"context": format_combined_docs, "question": RunnablePassthrough()}  # 提取上下文和問題
+        | prompt  # 構建提示
+        | llm  # 語言模型生成回答
+        | StrOutputParser()  # 解析生成的回應
     )
+
+    # 處理異步事件循環
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    guardrails = RunnableRails(config) # config.yml
-    chain_with_guardrails = guardrails | chain
 
-    return chain_with_guardrails
+    # 整合 Guardrails
+    guardrails = RunnableRails(config)  # 加載配置
+    chain_with_guardrails = guardrails | chain  # 將 Guardrails 與處理鏈結合
 
+    return chain_with_guardrails  # 返回完整處理鏈
