@@ -2,7 +2,7 @@ import requests
 import logging
 import json
 import streamlit as st
-import CHAIN as rag
+import retriever_chain as rag
 import os
 
 def get_id_from_url():
