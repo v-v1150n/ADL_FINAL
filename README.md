@@ -79,4 +79,5 @@ We store the chatbot's responses to our various questions in a JSON file and spl
 python evaluation.py
 ```
 
+The following are the four indicators that will be generated after the RAGAS assessment:
 ![RAGAS result](ragas_result.png)
