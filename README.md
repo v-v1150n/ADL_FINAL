@@ -70,3 +70,13 @@ python init_model.py
 
 - **Modify RAG Character Prompt Content**: Adjust `retriever_chain.py`.
 - **Modify Nemoguardrails Constraints**: Edit `./config/config.yml`.
+
+
+## Evalutation
+We store the chatbot's responses to our various questions in a JSON file and split them into smaller parts to avoid OpenAI API timeouts. We then execute evaluation.py on each part to evaluate our RAG model. Finally, we compile the results into a chart and include it in the report.
+
+```bash
+python evaluation.py
+```
+
+![RAGAS result](ragas_result.png)
