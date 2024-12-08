@@ -12,7 +12,10 @@ from langchain_openai import OpenAIEmbeddings
 
 os.environ["OPENAI_API_KEY"] = "Your API KEY"
 
-with open("b_part4.json", "r", encoding="utf-8") as file:
+response_path = "./evaluation/b_part4.json"
+output_path = "./evaluation/result4.csv"
+
+with open(response_path, "r", encoding="utf-8") as file:
     data = json.load(file)
 
 eval_dataset = EvaluationDataset.from_dict(data)
@@ -29,4 +32,4 @@ metrics = [
 results = evaluate(dataset=eval_dataset, metrics=metrics)
 
 df = results.to_pandas()
-df.to_csv("./result4.csv", index=False, encoding="utf-8-sig")  
+df.to_csv(output_path, index=False, encoding="utf-8-sig")  
