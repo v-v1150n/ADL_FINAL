@@ -73,7 +73,7 @@ python init_model.py
 
 
 ## Evalutation
-We store the chatbot's responses to our various questions in a JSON file and split them into smaller parts to avoid OpenAI API timeouts. We then execute evaluation.py on each part to evaluate our RAG model. Finally, we compile the results into a chart and include it in the report.
+We store the chatbot's responses to our various questions in a JSON file and split them into smaller parts to avoid OpenAI API timeouts. We then execute `evaluation.py` on each part to evaluate our RAG model. Finally, we compile the results into a chart and include it in the report.
 
 ```bash
 python evaluation/evaluation.py
